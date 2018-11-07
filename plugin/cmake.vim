@@ -29,28 +29,65 @@ endif
 function! s:find_build_dir()
   " Do not overwrite already found build_dir, may be set explicitly
   " by user.
-  if exists("b:build_dir") && b:build_dir != ""
+  if exists("g:build_dir") && g:build_dir != ""
     return 1
   endif
 
   let g:cmake_build_dir = get(g:, 'cmake_build_dir', 'build')
-  let b:build_dir = finddir(g:cmake_build_dir, ';')
+  let g:build_dir = finddir(g:cmake_build_dir, ';')
 
-  if b:build_dir == ""
+  if g:build_dir == ""
     " Find build directory in path of current file
-    let b:build_dir = finddir(g:cmake_build_dir, s:fnameescape(expand("%:p:h")) . ';')
+    let g:build_dir = finddir(g:cmake_build_dir, s:fnameescape(expand("%:p:h")) . ';')
   endif
 
-  if b:build_dir != ""
+  if g:build_dir != ""
     " expand() would expand "" to working directory, but we need
     " this as an indicator that build was not found
-    let b:build_dir = fnamemodify(b:build_dir, ':p')
-    echom "Found cmake build directory: " . s:fnameescape(b:build_dir)
+    let g:build_dir = fnamemodify(g:build_dir, ':p')
+    "echom "Found cmake build directory: " . s:fnameescape(g:build_dir)
     return 1
   else
     echom "Unable to find cmake build directory."
     return 0
   endif
+
+endfunction
+
+function! s:cmake_find_build_dir_no_log()
+
+  " Do not overwrite already found build_dir, may be set explicitly
+  " by user.
+  if exists("g:build_dir") && g:build_dir != ""
+    return 1
+  endif
+
+  let g:cmake_build_dir = get(g:, 'cmake_build_dir', 'build')
+  let g:build_dir = finddir(g:cmake_build_dir, ';')
+
+  if g:build_dir == ""
+    " Find build directory in path of current file
+    let g:build_dir = finddir(g:cmake_build_dir, s:fnameescape(expand("%:p:h")) . ';')
+  endif
+
+  if g:build_dir != ""
+    " expand() would expand "" to working directory, but we need
+    " this as an indicator that build was not found
+    let g:build_dir = fnamemodify(g:build_dir, ':p')
+    "echom "Found cmake build directory: " . s:fnameescape(g:build_dir)
+    return 1
+  else
+    return 0
+  endif
+
+endfunction
+
+function! s:cmake_init_autocommands()
+
+	if s:cmake_find_build_dir_no_log()
+		nmap <F4> :CMakeBuild<cr>
+		nmap <F5> :CMakeBuildRun<cr>
+	endif
 
 endfunction
 
@@ -67,7 +104,8 @@ endfunction
 "   * CMAKE_C_COMPILER
 "   * The generator (-G)
 function! s:cmake_configure()
-  exec 'cd' s:fnameescape(b:build_dir)
+
+  silent exec 'cd ' . s:fnameescape(g:build_dir)
 
   let l:argument = []
   " Only change values of variables, if project is not configured
@@ -106,14 +144,21 @@ function! s:cmake_configure()
   let l:argumentstr = join(l:argument, " ")
 
   let s:cmd = 'cmake .. '. l:argumentstr . " " . join(a:000)
-  echo s:cmd
+  "echo s:cmd
   if exists(":AsyncRun")
     execute 'copen'
     execute 'AsyncRun ' . s:cmd
     execute 'wincmd p'
   else
-    silent let s:res = system(s:cmd)
-    silent echo s:res
+	"Use Split Terminal from neovim
+	"SplitTerminal s:cmd
+	exec 'silent SplitTerminal (' . s:cmd ')'
+
+	"exec 'echo "' . s:cmd . '"'
+
+    "silent let s:res = system(s:cmd)
+    "silent echo s:res
+	"echo "test"
   endif
 
   " Create symbolic link to compilation database for use with YouCompleteMe
@@ -121,9 +166,9 @@ function! s:cmake_configure()
     if has("win32")
       exec "mklink" "../compile_commands.json" "compile_commands.json"
     else
-      silent echo system("ln -s " . s:fnameescape(b:build_dir) ."/compile_commands.json ../compile_commands.json")
+      silent echo system("ln -s " . s:fnameescape(g:build_dir) ."/compile_commands.json ../compile_commands.json")
     endif
-    echom "Created symlink to compilation database"
+    "echo "Created symlink to compilation database"
   endif
 
   exec 'cd -'
@@ -139,13 +184,68 @@ function! s:fnameescape(file) abort
   endif
 endfunction
 
+function! s:cmake_edit_cmakelists()
+
+	if !s:find_build_dir()
+		return
+	endif
+
+	execute "e ". s:fnameescape(g:build_dir) . '../CMakeLists.txt'
+
+endfunction
+
+function! s:cmake_build()
+
+	if !s:find_build_dir()
+		return
+	endif
+
+	silent exec 'cd ' . s:fnameescape(g:build_dir)
+
+	execute "SplitTerminal cmake --build ."
+
+	exec 'cd -'
+
+endfunction
+
+function! s:cmake_build_and_run()
+
+	if !s:find_build_dir()
+		return
+	endif
+
+	silent exec 'cd ' . s:fnameescape(g:build_dir)
+
+	execute "!( cmake --build .)"
+
+	echo v:shell_error
+
+	if v:shell_error == 0
+
+		"No error, hide message
+
+		call feedkeys("\<CR>")
+
+		"Run executable
+		exec 'SplitTerminal $(find ./ -maxdepth 1 -executable -type f | head -n 1)'
+
+	endif
+
+	exec 'cd -'
+
+endfunction
+
 " Public Interface:
 command! -nargs=? CMake call s:cmake(<f-args>)
 command! CMakeClean call s:cmakeclean()
 command! CMakeFindBuildDir call s:cmake_find_build_dir()
+command! CMakeListsEdit call s:cmake_edit_cmakelists()
+command! CMakeBuild call s:cmake_build()
+command! CMakeBuildRun call s:cmake_build_and_run()
+command! CMakeInit call s:cmake_init_autocommands()
 
 function! s:cmake_find_build_dir()
-  unlet! b:build_dir
+  unlet! g:build_dir
   call s:find_build_dir()
 endfunction
 
@@ -154,7 +254,7 @@ function! s:cmake(...)
     return
   endif
 
-  let &makeprg = 'cmake --build ' . shellescape(b:build_dir) . ' --target'
+  let &makeprg = 'cmake --build ' . shellescape(g:build_dir) . ' --target'
   call s:cmake_configure()
 endfunction
 
@@ -163,7 +263,7 @@ function! s:cmakeclean()
     return
   endif
 
-  silent echo system("rm -r '" . b:build_dir. "'/*")
+  silent echo system("rm -r '" . g:build_dir. "'/*")
   echom "Build directory has been cleaned."
 endfunction
 
