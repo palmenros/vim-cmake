@@ -237,6 +237,7 @@ endfunction
 
 " Public Interface:
 command! -nargs=? CMake call s:cmake(<f-args>)
+command! CMakeDebug call s:cmake_debug()
 command! CMakeClean call s:cmakeclean()
 command! CMakeFindBuildDir call s:cmake_find_build_dir()
 command! CMakeListsEdit call s:cmake_edit_cmakelists()
@@ -247,6 +248,11 @@ command! CMakeInit call s:cmake_init_autocommands()
 function! s:cmake_find_build_dir()
   unlet! g:build_dir
   call s:find_build_dir()
+endfunction
+
+function! s:cmake_debug()
+	let g:cmake_build_type = "Debug"
+	call s:cmake()
 endfunction
 
 function! s:cmake(...)
