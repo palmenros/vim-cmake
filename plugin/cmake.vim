@@ -59,7 +59,8 @@ function! s:cmake_find_build_dir_no_log()
   " Do not overwrite already found build_dir, may be set explicitly
   " by user.
   if exists("g:build_dir") && g:build_dir != ""
-    return 1
+    let g:cmake_found_build_dir=1
+	return 1
   endif
 
   let g:cmake_build_dir = get(g:, 'cmake_build_dir', 'build')
@@ -83,8 +84,8 @@ function! s:cmake_find_build_dir_no_log()
 endfunction
 
 function! s:cmake_init_autocommands()
-
-	if s:cmake_find_build_dir_no_log()
+	let g:cmake_found_build_dir = s:cmake_find_build_dir_no_log()
+	if g:cmake_found_build_dir
 		nmap <F4> :CMakeBuild<cr>
 		nmap <F5> :CMakeBuildRun<cr>
 	endif
@@ -235,6 +236,35 @@ function! s:cmake_build_and_run()
 
 endfunction
 
+function! s:cmake_build_and_debug()
+
+	if !s:find_build_dir()
+		return
+	endif
+
+	silent exec 'cd ' . s:fnameescape(g:build_dir)
+
+	execute "!( cmake --build .)"
+
+	echo v:shell_error
+
+	if v:shell_error == 0
+
+		"No error, hide message
+
+		call feedkeys("\<CR>")
+
+		"Debug Executable
+
+		let l:executable_path = substitute(system('find ' . g:build_dir . ' -maxdepth 1 -perm -111 -type f | tail -1'), '\n', '', 'g')
+		execute "GdbStart gdb -q -f " . l:executable_path
+
+	endif
+
+	exec 'cd -'
+
+endfunction
+
 " Public Interface:
 command! -nargs=? CMake call s:cmake(<f-args>)
 command! CMakeDebug call s:cmake_debug()
@@ -244,6 +274,7 @@ command! CMakeListsEdit call s:cmake_edit_cmakelists()
 command! CMakeBuild call s:cmake_build()
 command! CMakeBuildRun call s:cmake_build_and_run()
 command! CMakeInit call s:cmake_init_autocommands()
+command! CMakeBuildDebug call s:cmake_build_and_debug()
 
 function! s:cmake_find_build_dir()
   unlet! g:build_dir
