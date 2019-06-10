@@ -257,12 +257,21 @@ function! s:cmake_build_and_debug()
 		"Debug Executable
 
 		let l:executable_path = substitute(system('find ' . g:build_dir . ' -maxdepth 1 -perm -111 -type f | tail -1'), '\n', '', 'g')
-		execute "GdbStart gdb -q -f " . l:executable_path
+		execute "GdbStart gdb " . l:executable_path . " -q -f -x ~/.vim/.cmake_gdb_config" 
 
 	endif
 
 	exec 'cd -'
 
+endfunction
+
+"Generate CMakeLists.txt on current directory
+function! s:cmake_generate()
+	
+	"Copy default CMakeLists.txt from ~/.vim	
+	let b:destination_path = resolve(expand('%:p:h'))
+	call system('cp -n ~/.vim/.cmakelists.txt_template ' . b:destination_path . '/CMakeLists.txt')
+	call system('mkdir build')
 endfunction
 
 " Public Interface:
@@ -275,6 +284,7 @@ command! CMakeBuild call s:cmake_build()
 command! CMakeBuildRun call s:cmake_build_and_run()
 command! CMakeInit call s:cmake_init_autocommands()
 command! CMakeBuildDebug call s:cmake_build_and_debug()
+command! CMakeGenerate call s:cmake_generate()
 
 function! s:cmake_find_build_dir()
   unlet! g:build_dir

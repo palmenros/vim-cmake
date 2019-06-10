@@ -1,0 +1,5 @@
+cmake	cmake.txt	/*cmake*
+cmake-commands	cmake.txt	/*cmake-commands*
+cmake-options	cmake.txt	/*cmake-options*
+cmake-variables	cmake.txt	/*cmake-variables*
+cmake.txt	cmake.txt	/*cmake.txt*
