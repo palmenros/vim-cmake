@@ -256,8 +256,11 @@ function! s:cmake_build_and_debug()
 
 		"Debug Executable
 
+		let l:breakpoint_savefile  = g:build_dir . '../.cmake_breakpoint_save'
 		let l:executable_path = substitute(system('find ' . g:build_dir . ' -maxdepth 1 -perm -111 -type f | tail -1'), '\n', '', 'g')
-		execute "GdbStart gdb " . l:executable_path . " -q -f -x ~/.vim/.cmake_gdb_config" 
+
+		let l:cmake_gdb_command = "gdb --ex 'set $breakpoints_save_file_path = \"" . l:breakpoint_savefile . "\"' " . l:executable_path . " -q -f -x ~/.vim/.cmake_gdb_config"
+		execute 'GdbStart ' . l:cmake_gdb_command
 
 	endif
 
